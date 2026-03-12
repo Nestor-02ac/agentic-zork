@@ -63,34 +63,6 @@ python local_runner/run_local.py --game zork1 --output assets/my_run.json
 
 The local runner is a full port of the cloud agent — it includes valid actions extraction, per-room exploration tracking, loop detection, promising actions, and error recovery.
 
-## Project Structure
-
-```
-├── requirements.txt
-├── .env.example
-├── src/
-│   ├── agent.py          # ReAct agent (LLM loop, exploration, loop detection)
-│   ├── mcp_server.py     # MCP server exposing game tools
-│   ├── _va_worker.py     # Persistent subprocess for valid actions
-│   ├── run_agent.py      # CLI to run the cloud agent
-│   └── __init__.py
-├── games/
-│   ├── __init__.py
-│   └── zork_env.py       # Jericho wrapper (GameState, env interface)
-├── evaluation/
-│   ├── __init__.py
-│   ├── evaluate.py       # Multi-trial evaluation CLI
-│   ├── runner.py         # Agent/server process management
-│   └── metrics.py        # Score aggregation and statistics
-├── local_runner/
-│   ├── run_local.py      # Full local agent (Ollama, all features)
-│   └── generate_gif.py   # Generate terminal animation for README
-├── assets/
-│   └── terminal_demo.gif # Animated demo of gameplay
-└── z-machine-games-master/
-    └── jericho-game-suite/   # Z-machine game files (.z3/.z5/.z8)
-```
-
 ## How It Works
 
 The agent runs a **ReAct loop**: observe → think → act → repeat. At each step the LLM gets the game text, score, history, and valid actions, then outputs a `THOUGHT:` + `ACTION:` pair. The action is sent to the game via MCP and the cycle continues.
