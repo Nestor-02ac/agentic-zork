@@ -11,9 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from fastmcp import Client
-from fastmcp.client.transports import StdioTransport
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from games.zork_env import list_available_games
 
@@ -44,13 +41,17 @@ class RunResult:
 
 
 def load_agent_class(agent_path: Path):
-    """Dynamically load the StudentAgent class from agent.py."""
+    """Dynamically load the StudentAgent class from the configured agent file."""
     spec = importlib.util.spec_from_file_location("student_agent", agent_path)
     module = importlib.util.module_from_spec(spec)
 
-    submission_dir = str(agent_path.parent)
-    if submission_dir not in sys.path:
-        sys.path.insert(0, submission_dir)
+    submission_dir = agent_path.parent
+    submission_root = submission_dir.parent if submission_dir.name == "src" else submission_dir
+
+    for path in (submission_root, submission_dir):
+        path_str = str(path)
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
 
     spec.loader.exec_module(module)
 
@@ -82,6 +83,9 @@ async def run_agent_with_server(config: RunConfig) -> RunResult:
         )
 
     try:
+        from fastmcp import Client
+        from fastmcp.client.transports import StdioTransport
+
         AgentClass = load_agent_class(config.agent_path)
         agent = AgentClass()
 

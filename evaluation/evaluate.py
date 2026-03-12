@@ -31,6 +31,15 @@ def generate_seeds(base_seed: int, num_trials: int) -> list[int]:
     return [random.randint(0, 2**32 - 1) for _ in range(num_trials)]
 
 
+def resolve_submission_files(submission_path: Path) -> tuple[Path, Path]:
+    src_dir = submission_path / "src"
+    agent_path = src_dir / "agent.py"
+    server_path = src_dir / "mcp_server.py"
+    if agent_path.exists() and server_path.exists():
+        return agent_path, server_path
+    return submission_path / "agent.py", submission_path / "mcp_server.py"
+
+
 async def evaluate_submission(
     submission_path: Path,
     game: str,
@@ -40,8 +49,7 @@ async def evaluate_submission(
     verbose: bool = False,
 ) -> EvaluationResult:
     """Evaluate an agent across multiple trials."""
-    agent_path = submission_path / "agent.py"
-    server_path = submission_path / "mcp_server.py"
+    agent_path, server_path = resolve_submission_files(submission_path)
 
     student_id = submission_path.name
     readme_path = submission_path / "README.md"

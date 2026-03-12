@@ -2,10 +2,10 @@
 """Run the MCP ReAct agent on a text adventure game.
 
 Usage:
-    python run_agent.py
-    python run_agent.py --game advent
-    python run_agent.py --max-steps 150 -v
-    python run_agent.py --list-games
+    python src/run_agent.py
+    python src/run_agent.py --game advent
+    python src/run_agent.py --max-steps 150 -v
+    python src/run_agent.py --list-games
 """
 
 import argparse
@@ -14,17 +14,18 @@ import os
 import asyncio
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+SRC_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SRC_DIR.parent
+
+sys.path.insert(0, str(PROJECT_ROOT))
 from games.zork_env import list_available_games
 
 
 async def run_mcp_agent(args):
-    project_dir = Path(__file__).parent
-    agent_file = project_dir / "agent.py"
-    server_file = project_dir / "mcp_server.py"
+    src_dir = Path(__file__).resolve().parent
+    server_file = src_dir / "mcp_server.py"
 
-    sys.path.insert(0, str(project_dir))
-    from agent import StudentAgent
+    from src.agent import StudentAgent
     from fastmcp import Client
     from fastmcp.client.transports import StdioTransport
 

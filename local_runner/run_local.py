@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Local model runner for Agentic Zork — Full implementation.
-Port of agent.py that uses Ollama for inference and Jericho directly.
+Port of src/agent.py that uses Ollama for inference and Jericho directly.
 Designed for laptop hardware with small models (3B-9B).
 
 Usage:

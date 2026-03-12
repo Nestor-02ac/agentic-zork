@@ -12,9 +12,9 @@ The agent connects to a game server over MCP's stdio transport, reasons about wh
 - **Local**: Qwen 3.5 4B (or any Ollama model) running entirely on your machine
 
 ```
-agent.py  ◄── MCP (stdio) ──►  mcp_server.py  ◄── Jericho ──►  .z5 game file
-                                      │
-                                _va_worker.py  (subprocess)
+src/agent.py  ◄── MCP (stdio) ──►  src/mcp_server.py  ◄── Jericho ──►  .z5 game file
+                  │
+               src/_va_worker.py  (subprocess)
 
 local_runner/run_local.py  ◄── Ollama API ──►  local LLM
         │
@@ -26,21 +26,18 @@ local_runner/run_local.py  ◄── Ollama API ──►  local LLM
 ```bash
 # Clone, install
 git clone <repo-url> && cd agentic-zork
+
 python -m venv .venv
 source .venv/bin/activate   # Linux/macOS
-
-# Install dependencies
 pip install -r requirements.txt
 
 # Set your HuggingFace token
 cp .env.example .env
 # Edit .env and add your HF_TOKEN (needs access to Qwen2.5-72B-Instruct)
 
-# Play Lost Pig (default, requires HF_TOKEN)
-python run_agent.py -v
-
-# Play Zork 1
-python run_agent.py -g zork1 -v
+# Play Lost Pig
+python src/run_agent.py -v
+python src/run_agent.py -g zork1 -v
 
 # Evaluate over multiple trials
 python evaluation/evaluate.py -s . -g lostpig -t 3 -v
@@ -55,13 +52,13 @@ Run the agent entirely on your machine with [Ollama](https://ollama.com/):
 ollama pull qwen3.5:4b
 
 # Play Zork 1 locally (50 steps)
-python local_runner/run_local.py --game zork1 --max-steps 50
+python local_runner/run_local.py --game zork1 --steps 50
 
 # Play Lost Pig with a different model
-python local_runner/run_local.py --game lostpig --model qwen3.5:4b --max-steps 30
+python local_runner/run_local.py --game lostpig --model qwen3.5:4b --steps 30
 
 # Save a game log as JSON
-python local_runner/run_local.py --game zork1 --log assets/my_run.json
+python local_runner/run_local.py --game zork1 --output assets/my_run.json
 ```
 
 The local runner is a full port of the cloud agent — it includes valid actions extraction, per-room exploration tracking, loop detection, promising actions, and error recovery.
@@ -69,12 +66,14 @@ The local runner is a full port of the cloud agent — it includes valid actions
 ## Project Structure
 
 ```
-├── agent.py              # ReAct agent (LLM loop, exploration, loop detection)
-├── mcp_server.py         # MCP server exposing game tools
-├── _va_worker.py         # Persistent subprocess for valid actions
-├── run_agent.py          # CLI to run the agent on any game
 ├── requirements.txt
 ├── .env.example
+├── src/
+│   ├── agent.py          # ReAct agent (LLM loop, exploration, loop detection)
+│   ├── mcp_server.py     # MCP server exposing game tools
+│   ├── _va_worker.py     # Persistent subprocess for valid actions
+│   ├── run_agent.py      # CLI to run the cloud agent
+│   └── __init__.py
 ├── games/
 │   ├── __init__.py
 │   └── zork_env.py       # Jericho wrapper (GameState, env interface)
@@ -94,69 +93,17 @@ The local runner is a full port of the cloud agent — it includes valid actions
 
 ## How It Works
 
-### ReAct Loop
+The agent runs a **ReAct loop**: observe → think → act → repeat. At each step the LLM gets the game text, score, history, and valid actions, then outputs a `THOUGHT:` + `ACTION:` pair. The action is sent to the game via MCP and the cycle continues.
 
-The agent follows a Reason-Act cycle at every step:
+**MCP tools** exposed by the server: `play_action`, `memory`, `get_map`, `inventory`, `valid_actions`. Each action response includes a `[Location: name|id]` tag from Jericho so the agent always knows where it is.
 
-1. The LLM receives a prompt with the current observation, score, recent history, room-specific context, and valid actions.
-2. It outputs a structured response: `THOUGHT:` (reasoning), `TOOL:` (which MCP tool), `ARGS:` (parameters).
-3. The tool is executed via MCP and the result becomes the next observation.
+**Valid actions** come from Jericho's `get_valid_actions()`, which can block for 60s+. A dedicated subprocess (`src/_va_worker.py`) handles this with `signal.alarm` timeouts so the async server never freezes. If the worker hangs it gets killed and respawned automatically.
 
-This repeats for up to `max_steps` turns or until the game ends.
+**Loop detection** catches two patterns: single-action repeats (e.g. `examine` × 3) and two-action cycles (A→B→A→B). When detected, the agent re-prompts the LLM with the banned actions and valid alternatives instead of picking randomly.
 
-### MCP Server & Tools
+**Per-room exploration** tracks actions tried, exits used, and promising interactions (extracted by a secondary LLM call on room entry). After 8 steps in the same room the prompt nudges the agent to move on.
 
-The server (`mcp_server.py`) runs as a subprocess communicating via MCP's stdio transport. It exposes five tools:
-
-| Tool | Description |
-|---|---|
-| `play_action` | Send a command to the game (e.g. `north`, `take lamp`) |
-| `memory` | Current location, score, moves, and recent history |
-| `get_map` | Explored locations and the connections between them |
-| `inventory` | Items the player is carrying |
-| `valid_actions` | Actions that are valid in the current game state |
-
-Every `play_action` response is enriched with a `[Location: name|id]` tag from Jericho's `get_player_location()` API, giving the agent a reliable room identifier even when the observation text starts with dialogue or action results.
-
-### Valid Actions Worker
-
-Jericho's `get_valid_actions()` uses spaCy internally and can block for over a minute on some game states. Calling it inside the async MCP server would freeze the event loop.
-
-We solve this with `_va_worker.py`, a persistent subprocess with a line-based protocol:
-
-- On init: `INIT <game_name>` → worker loads the game environment.
-- Each call: the server serializes the game state via `save_state()` → base64, sends `VA <state>`.
-- The worker restores the state, runs `get_valid_actions()` with a 30-second `signal.alarm` timeout (safe because the worker has no async event loop), and returns results as a `|||`-delimited list.
-- The server reads the response with a 35-second `select.select` timeout as a second safety net.
-
-If the worker hangs or crashes, it is killed and a fresh one is spawned automatically on the next call. On any failure, the server falls back to a generic action list so gameplay continues uninterrupted. Results are cached and only refreshed every 3 steps.
-
-> Note: Uses POSIX-specific mechanisms (`signal.alarm`, `select.select`), tested on Linux.
-
-### Loop Detection
-
-Text adventure agents often get stuck repeating the same actions. We implement two detectors:
-
-**Single-action loop**: flags non-directional actions (e.g. `examine`, `talk`) after 2 consecutive repeats, and directional actions (e.g. `north`) after 4 repeats (since walking through rooms back and forth is sometimes legitimate).
-
-**Two-action loop**: detects A-B-A-B patterns (e.g. `take pig` → `look` → `take pig` → `look`) that the single-action detector misses.
-
-When a loop is detected, instead of picking a random action, the agent **re-prompts the LLM** with the banned action(s), valid alternatives, and a "try something different" instruction. Only if the LLM still picks a banned action does the agent force an alternative from the valid actions cache.
-
-### Structured Per-Room Exploration
-
-For each room (identified by Jericho's location ID), the agent tracks:
-
-- **Action log**: every action tried and its short outcome.
-- **Promising actions**: extracted by a secondary LLM call on room entry — items to take, containers to open, NPCs to interact with, hidden objects to check.
-- **Exits tried**: which directions have been attempted from this room.
-- **Steps in room**: after 8 steps in the same room, the prompt warns the agent to move on and can suggest an unexplored exit.
-
-All of this context is injected into the dynamic prompt so the LLM knows what has been tried and what remains.
-
-### Tool Call Validation
-
-The LLM sometimes calls game verbs as MCP tool names (e.g. `TOOL: examine` instead of `TOOL: play_action` with `examine pig`). A validation layer catches this and reconstructs the correct `play_action` call from the verb and its arguments. It also maps invalid game verbs (`check` → `examine`, `grab` → `take`, etc.).
+**Tool call validation** catches when the LLM writes game verbs as tool names (e.g. `TOOL: examine` instead of `play_action`) and fixes them automatically. It also maps invalid verbs like `grab` → `take`.
 
 ## Evaluation
 

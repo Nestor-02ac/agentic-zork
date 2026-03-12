@@ -4,13 +4,14 @@ import json
 import os
 import re
 import asyncio
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
 
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # LLM Configuration
 LLM_MODEL = "Qwen/Qwen2.5-72B-Instruct"
@@ -671,11 +672,12 @@ class StudentAgent:
 
 # Local testing
 async def test_agent():
+    server_file = Path(__file__).with_name("mcp_server.py")
     from fastmcp import Client
 
     agent = StudentAgent()
 
-    async with Client("mcp_server.py") as client:
+    async with Client(str(server_file)) as client:
         result = await agent.run(
             client=client,
             game="zork1",
