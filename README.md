@@ -93,14 +93,3 @@ python evaluation/evaluate.py --list-games
 ```
 
 The evaluation framework runs each trial with a different seed for reproducibility and reports mean/std/min/max scores.
-
-### Results
-
-| Game | Typical Score | Notes |
-|---|---|---|
-| Lost Pig | ~2 pts | Finds pig + coin, visits 50+ locations |
-| Zork 1 | 10–40 pts | Varies with early lamp discovery, 50+ locations |
-
-## License
-
-MIT
