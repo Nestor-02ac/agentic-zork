@@ -1,4 +1,4 @@
-# Agentic Zork
+<h1 align="center">Agentic Zork</h1>
 
 <p align="center">
   <img src="assets/terminal_demo.gif" alt="Qwen 3.5 4B playing Zork I — opening the mailbox, discovering a hidden grating, entering the white house, and collecting items" width="620">
