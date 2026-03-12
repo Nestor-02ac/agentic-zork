@@ -4,7 +4,7 @@
   <img src="assets/terminal_demo.gif" alt="Qwen 3.5 4B playing Zork I — opening the mailbox, discovering a hidden grating, entering the white house, and collecting items" width="620">
 </p>
 
-An LLM-powered agent that plays classic text adventure games (Zork, Lost Pig, Advent, etc.) using the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) and a ReAct reasoning loop.
+An LLM agent that plays classic text adventure games (Zork, Lost Pig, Advent, etc.) using the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) and a ReAct reasoning loop.
 
 The agent connects to a game server over MCP's stdio transport, reasons about what to do via chain-of-thought prompting, and sends commands to Z-machine games through the [Jericho](https://github.com/microsoft/jericho) framework. It supports two modes:
 
@@ -24,10 +24,8 @@ local_runner/run_local.py  ◄── Ollama API ──►  local LLM
 ## Quick Start
 
 ```bash
-# Clone and enter the repo
+# Clone, install
 git clone <repo-url> && cd agentic-zork
-
-# Create a virtual environment (recommended: Python 3.11+)
 python -m venv .venv
 source .venv/bin/activate   # Linux/macOS
 
@@ -183,20 +181,6 @@ The evaluation framework runs each trial with a different seed for reproducibili
 |---|---|---|
 | Lost Pig | ~2 pts | Finds pig + coin, visits 50+ locations |
 | Zork 1 | 10–40 pts | Varies with early lamp discovery, 50+ locations |
-
-## Known Limitations
-
-- **LLM repetition**: the model sometimes fixates on similar interactions with slightly different phrasing, which the loop detectors can't always catch.
-- **Step efficiency**: some steps are spent on redundant examinations or invalid commands.
-- **POSIX-only**: the valid actions worker uses `signal.alarm` and `select.select`, so it only works on Linux/macOS.
-
-## Dependencies
-
-- [Jericho](https://github.com/microsoft/jericho) — Z-machine game interface
-- [FastMCP](https://github.com/jlowin/fastmcp) — MCP server/client framework
-- [spaCy](https://spacy.io/) + `en_core_web_sm` — used by Jericho for valid action extraction
-- [HuggingFace Inference API](https://huggingface.co/docs/huggingface_hub/guides/inference) — cloud LLM access (Qwen2.5-72B-Instruct)
-- [Ollama](https://ollama.com/) — local LLM inference (Qwen 3.5 4B or similar)
 
 ## License
 

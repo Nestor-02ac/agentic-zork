@@ -146,22 +146,18 @@ def render_frame(base_img, lines_to_show, font, show_cursor=True):
                 fill=GREEN
             )
 
-    # Subtle scanline effect
-    for y in range(SCREEN_Y, TERM_H - 4, 3):
-        draw.line([(5, y), (TERM_W - 5, y)], fill=(51, 255, 51, 3), width=1)
-
     # Phosphor glow border
-    draw.rectangle([4, SCREEN_Y, TERM_W - 4, TERM_H - 4], outline=(51, 255, 51), width=1)
+    draw.rectangle([4, SCREEN_Y, TERM_W - 4, TERM_H - 4], outline=(0, 60, 0), width=1)
 
     return img
 
 
 def make_scanline_overlay(img):
-    """Add subtle scanline effect."""
+    """Add subtle CRT scanline darkening every other line."""
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     for y in range(SCREEN_Y, TERM_H - 4, 2):
-        draw.line([(5, y), (TERM_W - 5, y)], fill=(0, 0, 0, 12))
+        draw.line([(5, y), (TERM_W - 5, y)], fill=(0, 0, 0, 25))
     return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
 
@@ -176,10 +172,8 @@ def generate_gif(output_path: str):
     script = [
         # Opening
         ([
-            ("header",  "══════════════════════════════════════════════════"),
-            ("header",  "   AGENTIC ZORK — AI Playing Zork I"),
-            ("header",  "   Model: Qwen 3.5 4B (local, Ollama)"),
-            ("header",  "══════════════════════════════════════════════════"),
+            ("header",  "AGENTIC ZORK — AI Playing Zork I"),
+            ("header",  "Model: Qwen 3.5 4B (local, Ollama)"),
             ("blank",   ""),
             ("game",    "West of House"),
             ("game",    "You are standing in an open field west of a"),
@@ -321,10 +315,8 @@ def generate_gif(output_path: str):
         ([
             ("blank",   ""),
             ("blank",   ""),
-            ("header",  "══════════════════════════════════════════════════"),
-            ("header",  "   Score: 10 pts | 50 moves | 8 locations"),
-            ("header",  "   Items: sword, lantern, sack, bottle"),
-            ("header",  "══════════════════════════════════════════════════"),
+            ("header",  "Score: 10 pts | 50 moves | 8 locations"),
+            ("header",  "Items: sword, lantern, sack, bottle"),
         ], 4000),
     ]
 
